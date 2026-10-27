@@ -1,0 +1,58 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum DocumentStatus {
+  PROCESSING
+  READY
+  FAILED
+}
+
+model Document {
+  id        String         @id @default(cuid())
+  fileName  String
+  mimeType  String
+  fileSize  Int
+  fileData  Bytes
+  status    DocumentStatus @default(PROCESSING)
+  error     String?
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+
+  documentType   String?
+  vendorName     String?
+  documentNumber String?
+  issueDate      DateTime? @db.Date
+  dueDate        DateTime? @db.Date
+  currency       String?
+  subtotal       Decimal?  @db.Decimal(14, 2)
+  tax            Decimal?  @db.Decimal(14, 2)
+  total          Decimal?  @db.Decimal(14, 2)
+  category       String?
+  warnings       String[]
+  // True once a person has checked or corrected the extracted fields.
+  reviewed       Boolean   @default(false)
+
+  lineItems LineItem[]
+
+  @@index([createdAt])
+  @@index([issueDate])
+}
+
+model LineItem {
+  id          String   @id @default(cuid())
+  documentId  String
+  document    Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  position    Int
+  description String
+  quantity    Decimal? @db.Decimal(14, 3)
+  unitPrice   Decimal? @db.Decimal(14, 2)
+  amount      Decimal? @db.Decimal(14, 2)
+
+  @@index([documentId])
+}

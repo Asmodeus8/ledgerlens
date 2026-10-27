@@ -1,36 +1,60 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Ledgerlens
 
-## Getting Started
+Upload invoices and receipts; Claude reads them and turns them into structured expense data you can review, correct, chart and export.
 
-First, run the development server:
+## Features
+
+- **AI extraction**: PDFs and photos (JPEG, PNG, WebP) go to Claude with a Zod schema as a structured output. It returns the vendor, document number, dates, currency, subtotal, tax, total, category, line items and warnings about anything unreadable or inconsistent.
+- **Background processing**: uploads return straight away, extraction runs after the response (`after()`), and the UI polls until it finishes.
+- **Human in the loop**: every extracted field can be corrected next to the original document, and corrected documents are marked *Reviewed*.
+- **Dashboard**: spend per currency (currencies are never added together), by category and by month.
+- **CSV export**: neutralises spreadsheet formula injection.
+- **Hardened file serving**: uploads are served with `nosniff` and a sandboxing CSP.
+
+## Stack
+
+| | |
+|---|---|
+| Framework | Next.js 16 (App Router, Server Actions, Cache Components), React 19, TypeScript |
+| Data | PostgreSQL 17, Prisma 7 (driver adapter `@prisma/adapter-pg`) |
+| AI | Claude via `@anthropic-ai/sdk`, structured outputs with Zod |
+| UI | Tailwind CSS 4, light and dark themes |
+| Tests | Vitest |
+
+## Running locally
+
+Requires Node 22+ and Docker.
 
 ```bash
+cp .env.example .env          # then set ANTHROPIC_API_KEY
+docker compose up -d          # Postgres on localhost:5433
+npm install                   # also generates the Prisma client
+npx prisma migrate dev        # create the tables
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open http://localhost:3000 and upload a receipt.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```bash
+npm test                      # unit tests
+npm run lint
+npm run build
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Project layout
 
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+```
+src/
+  app/
+    actions.ts                Server Actions: upload, correct, retry, delete
+    page.tsx                  dashboard
+    documents/                list and detail pages
+    upload/                   drag-and-drop upload
+    api/export/               CSV export
+    api/documents/[id]/file/  serves the original upload
+  lib/
+    extraction.ts             Claude call and extraction schema
+    documents.ts              queries and the extraction pipeline
+    reports.ts                totals and CSV (pure, unit tested)
+prisma/schema.prisma
+```
