@@ -48,6 +48,8 @@ npm run dev
 
 Open http://localhost:3000, create an account and upload a receipt.
 
+Without `ANTHROPIC_API_KEY`, the app runs in demo mode: uploads get labelled sample data instead of a real extraction, so the whole flow works with no key. Set `EXTRACTION_MODE` to `claude` or `demo` to force either.
+
 To explore with realistic data, without an API key:
 
 ```bash

@@ -3,6 +3,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { betaZodOutputFormat } from "@anthropic-ai/sdk/helpers/beta/zod";
 import { z } from "zod/v4";
 import { CATEGORIES } from "@/lib/categories";
+import { demoExtraction } from "@/lib/demo-extraction";
 
 export const SUPPORTED_MIME_TYPES = [
   "application/pdf",
@@ -54,10 +55,19 @@ export class ExtractionError extends Error {}
 
 const client = new Anthropic();
 
+/** Claude when an API key is set, otherwise demo data. EXTRACTION_MODE forces either. */
+export function extractionMode(): "claude" | "demo" {
+  const configured = process.env.EXTRACTION_MODE;
+  if (configured === "claude" || configured === "demo") return configured;
+  return process.env.ANTHROPIC_API_KEY ? "claude" : "demo";
+}
+
 export async function extractDocument(
   data: Buffer,
   mimeType: SupportedMimeType,
 ): Promise<Extraction> {
+  if (extractionMode() === "demo") return demoExtraction(data);
+
   const base64 = data.toString("base64");
   const attachment: Anthropic.Beta.BetaContentBlockParam =
     mimeType === "application/pdf"
