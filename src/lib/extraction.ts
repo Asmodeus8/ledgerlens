@@ -70,6 +70,10 @@ export async function extractDocument(
           source: { type: "base64", media_type: mimeType, data: base64 },
         };
 
+  if (!process.env.ANTHROPIC_API_KEY) {
+    throw new ExtractionError("No Anthropic API key is configured.");
+  }
+
   const response = await client.beta.messages.parse({
     model: "claude-opus-5-5",
     max_tokens: 16000,
@@ -86,6 +90,8 @@ export async function extractDocument(
         content: [attachment, { type: "text", text: "Extract this document." }],
       },
     ],
+  }).catch((err: unknown) => {
+    throw toExtractionError(err);
   });
 
   if (response.stop_reason === "refusal") {
@@ -98,4 +104,23 @@ export async function extractDocument(
     throw new ExtractionError("The model returned data that didn't match the schema.");
   }
   return response.parsed_output;
+}
+
+function toExtractionError(err: unknown): unknown {
+  if (err instanceof Anthropic.AuthenticationError) {
+    return new ExtractionError("The Anthropic API key was rejected.");
+  }
+  if (err instanceof Anthropic.PermissionDeniedError) {
+    return new ExtractionError("The Anthropic API key can't use this model.");
+  }
+  if (err instanceof Anthropic.RateLimitError) {
+    return new ExtractionError("Rate limited by the extraction service. Try again shortly.");
+  }
+  if (err instanceof Anthropic.APIConnectionError) {
+    return new ExtractionError("Couldn't reach the extraction service. Try again.");
+  }
+  if (err instanceof Anthropic.BadRequestError) {
+    return new ExtractionError("This file couldn't be read. Try a clearer scan or a different format.");
+  }
+  return err;
 }
