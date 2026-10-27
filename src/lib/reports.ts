@@ -65,6 +65,33 @@ export function summarize(docs: ReportDocument[]): CurrencyTotals[] {
     .sort((a, b) => b.count - a.count);
 }
 
+export type MonthPoint = { month: string; total: number };
+
+function monthKey(date: Date): string {
+  return date.toISOString().slice(0, 7);
+}
+
+/**
+ * The last `count` calendar months ending at `now`, oldest first, with empty
+ * months as zero so a gap in spending shows as a gap rather than disappearing.
+ */
+export function lastMonths(byMonth: MonthPoint[], now: Date, count = 6): MonthPoint[] {
+  const totals = new Map(byMonth.map((m) => [m.month, m.total]));
+  const points: MonthPoint[] = [];
+  for (let i = count - 1; i >= 0; i--) {
+    const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - i, 1));
+    const month = monthKey(d);
+    points.push({ month, total: totals.get(month) ?? 0 });
+  }
+  return points;
+}
+
+/** Percentage change, or null when there's no baseline to compare against. */
+export function percentChange(current: number, previous: number): number | null {
+  if (previous === 0) return null;
+  return Math.round(((current - previous) / previous) * 100);
+}
+
 const CSV_COLUMNS: { header: string; value: (d: ReportDocument) => unknown }[] = [
   { header: "Date", value: (d) => d.issueDate?.toISOString().slice(0, 10) },
   { header: "Vendor", value: (d) => d.vendorName },

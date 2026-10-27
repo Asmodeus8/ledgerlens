@@ -1,41 +1,88 @@
 @import "tailwindcss";
 
+/*
+ * Ledgerlens design tokens. Warm paper neutrals, one teal accent, money in mono.
+ * Chart colors are validated separately from the UI accent (dataviz palette check).
+ */
 :root {
-  --background: #fafaf9;
+  --background: #f7f6f3;
   --surface: #ffffff;
-  --foreground: #1c1917;
-  --muted: #78716c;
-  --line: #e7e5e4;
+  --surface-2: #f2f0ec;
+  --foreground: #1c1a17;
+  --muted: #6f6a63;
+  --subtle: #9a948c;
+  --line: #e6e2dc;
+  --line-strong: #d6d1c9;
   --accent: #0f766e;
+  --accent-hover: #0c625b;
   --accent-foreground: #ffffff;
-  --danger: #b91c1c;
-  --warning: #a16207;
+  --accent-soft: #e3f2ef;
+  --accent-soft-foreground: #0b5c55;
+  --chart-1: #0d9488;
+  --chart-grid: #ece9e4;
+  --danger: #b42318;
+  --danger-soft: #fdecea;
+  --warning: #8a5a00;
+  --warning-soft: #fdf4dc;
+  --ring: rgb(15 118 110 / 0.35);
+  --shadow-sm: 0 1px 2px rgb(28 26 23 / 0.05);
+  --shadow-md: 0 1px 2px rgb(28 26 23 / 0.04), 0 6px 20px -6px rgb(28 26 23 / 0.12);
+  --shadow-lg: 0 2px 4px rgb(28 26 23 / 0.04), 0 18px 48px -12px rgb(28 26 23 / 0.22);
+  color-scheme: light;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0c0a09;
-    --surface: #1c1917;
-    --foreground: #f5f5f4;
-    --muted: #a8a29e;
-    --line: #292524;
-    --accent: #2dd4bf;
-    --accent-foreground: #042f2e;
-    --danger: #f87171;
-    --warning: #facc15;
+    --background: #121110;
+    --surface: #1b1a18;
+    --surface-2: #232220;
+    --foreground: #f3f1ed;
+    --muted: #a7a199;
+    --subtle: #7d776f;
+    --line: #2c2a27;
+    --line-strong: #3a3733;
+    --accent: #2bb5a4;
+    --accent-hover: #3cc7b6;
+    --accent-foreground: #04201d;
+    --accent-soft: #10302c;
+    --accent-soft-foreground: #7fdccf;
+    --chart-1: #1aa999;
+    --chart-grid: #2a2826;
+    --danger: #f97066;
+    --danger-soft: #3a1714;
+    --warning: #f5c451;
+    --warning-soft: #33280e;
+    --ring: rgb(43 181 164 / 0.4);
+    --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.3);
+    --shadow-md: 0 1px 2px rgb(0 0 0 / 0.3), 0 8px 24px -8px rgb(0 0 0 / 0.5);
+    --shadow-lg: 0 2px 4px rgb(0 0 0 / 0.3), 0 20px 50px -12px rgb(0 0 0 / 0.6);
+    color-scheme: dark;
   }
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
   --color-foreground: var(--foreground);
   --color-muted: var(--muted);
+  --color-subtle: var(--subtle);
   --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
   --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
   --color-accent-foreground: var(--accent-foreground);
+  --color-accent-soft: var(--accent-soft);
+  --color-accent-soft-foreground: var(--accent-soft-foreground);
+  --color-chart-1: var(--chart-1);
+  --color-chart-grid: var(--chart-grid);
   --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
   --color-warning: var(--warning);
+  --color-warning-soft: var(--warning-soft);
+  --shadow-sm: var(--shadow-sm);
+  --shadow-md: var(--shadow-md);
+  --shadow-lg: var(--shadow-lg);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
@@ -44,22 +91,99 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: var(--font-sans), system-ui, sans-serif;
+  font-feature-settings: "ss01", "cv11";
 }
 
-@layer components {
-  .card {
-    @apply rounded-lg border border-line bg-surface;
+::selection {
+  background: var(--accent-soft);
+  color: var(--accent-soft-foreground);
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+@utility card {
+  @apply rounded-xl border border-line bg-surface shadow-sm;
+}
+@utility btn {
+  @apply inline-flex h-9 items-center justify-center gap-2 rounded-lg px-3.5 text-sm font-medium whitespace-nowrap transition-[background-color,border-color,color,box-shadow,transform] duration-150 select-none active:translate-y-px disabled:pointer-events-none disabled:opacity-50;
+  & svg {
+    flex-shrink: 0;
   }
-  .btn-primary {
-    @apply inline-flex items-center rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-accent-foreground hover:opacity-90 disabled:opacity-50;
+}
+@utility btn-primary {
+  @apply btn bg-accent text-accent-foreground shadow-sm hover:bg-accent-hover;
+}
+@utility btn-secondary {
+  @apply btn border border-line-strong bg-surface text-foreground shadow-sm hover:border-subtle hover:bg-surface-2;
+}
+@utility btn-ghost {
+  @apply btn text-muted hover:bg-surface-2 hover:text-foreground;
+}
+@utility btn-danger {
+  @apply btn bg-danger text-white shadow-sm hover:opacity-90;
+}
+/* Square, borderless icon button. Standalone so no other button padding leaks in. */
+@utility btn-icon {
+  @apply inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-muted transition-colors hover:bg-surface-2 hover:text-foreground disabled:pointer-events-none disabled:opacity-50;
+}
+@utility input {
+  @apply h-9 w-full rounded-lg border border-line-strong bg-surface px-3 text-sm text-foreground shadow-sm transition-[border-color,box-shadow] duration-150 outline-none placeholder:text-subtle hover:border-subtle focus:border-accent focus:ring-4 focus:ring-[var(--ring)] aria-invalid:border-danger;
+}
+@utility label {
+  @apply mb-1.5 block text-xs font-medium text-muted;
+}
+@utility money {
+  @apply tabular-nums;
+}
+@utility eyebrow {
+  @apply text-xs font-medium text-muted;
+}
+@utility skeleton {
+  @apply rounded-md bg-surface-2;
+  background-image: linear-gradient(
+    90deg,
+    transparent 0%,
+    color-mix(in oklab, var(--line) 70%, transparent) 50%,
+    transparent 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.4s ease-in-out infinite;
+}
+
+@keyframes shimmer {
+  from {
+    background-position: 150% 0;
   }
-  .btn-secondary {
-    @apply inline-flex items-center rounded-md border border-line px-3 py-1.5 text-sm hover:bg-background disabled:opacity-50;
+  to {
+    background-position: -50% 0;
   }
-  .input {
-    @apply w-full rounded-md border border-line bg-surface px-2.5 py-1.5 text-sm outline-none focus:border-accent;
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
   }
-  .label {
-    @apply mb-1 block text-xs font-medium text-muted;
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.animate-rise {
+  animation: rise 0.35s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
   }
 }

@@ -19,6 +19,35 @@ export function formatMoney(value: Numeric, currency: string | null | undefined)
   return currency ? `${plain} ${currency}` : plain;
 }
 
+/** Short money for axis ticks and tight spaces: ₦25K, $1.2M. */
+export function formatCompactMoney(amount: number, currency: string | null | undefined): string {
+  if (currency && /^[A-Z]{3}$/.test(currency)) {
+    try {
+      return new Intl.NumberFormat("en-NG", {
+        style: "currency",
+        currency,
+        notation: "compact",
+        maximumFractionDigits: 1,
+      }).format(amount);
+    } catch {
+      // fall through
+    }
+  }
+  return new Intl.NumberFormat("en-NG", { notation: "compact", maximumFractionDigits: 1 }).format(amount);
+}
+
+export function formatFileSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+export function formatMonthShort(month: string): string {
+  return new Intl.DateTimeFormat("en-GB", { month: "short", timeZone: "UTC" }).format(
+    new Date(`${month}-01T00:00:00Z`),
+  );
+}
+
 export function formatDate(value: Date | null | undefined): string {
   if (!value) return "—";
   return new Intl.DateTimeFormat("en-GB", {

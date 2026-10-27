@@ -1,23 +1,48 @@
+import { CircleAlert, CircleCheck, CircleDashed, LoaderCircle } from "lucide-react";
 import type { DocumentStatus } from "@/generated/prisma/enums";
 
-const styles: Record<DocumentStatus, string> = {
-  PROCESSING: "text-muted border-line animate-pulse",
-  READY: "text-accent border-accent/40",
-  FAILED: "text-danger border-danger/40",
-};
+const variants = {
+  processing: {
+    label: "Processing",
+    icon: LoaderCircle,
+    spin: true,
+    className: "bg-surface-2 text-muted",
+  },
+  review: {
+    label: "To review",
+    icon: CircleDashed,
+    spin: false,
+    className: "bg-warning-soft text-warning",
+  },
+  reviewed: {
+    label: "Reviewed",
+    icon: CircleCheck,
+    spin: false,
+    className: "bg-accent-soft text-accent-soft-foreground",
+  },
+  failed: {
+    label: "Failed",
+    icon: CircleAlert,
+    spin: false,
+    className: "bg-danger-soft text-danger",
+  },
+} as const;
 
-const labels: Record<DocumentStatus, string> = {
-  PROCESSING: "Processing",
-  READY: "Ready",
-  FAILED: "Failed",
-};
+export function statusVariant(status: DocumentStatus, reviewed: boolean) {
+  if (status === "PROCESSING") return "processing";
+  if (status === "FAILED") return "failed";
+  return reviewed ? "reviewed" : "review";
+}
 
-export function StatusBadge({ status, reviewed }: { status: DocumentStatus; reviewed?: boolean }) {
+export function StatusBadge({ status, reviewed }: { status: DocumentStatus; reviewed: boolean }) {
+  const v = variants[statusVariant(status, reviewed)];
+  const Icon = v.icon;
   return (
     <span
-      className={`inline-block rounded-full border px-2 py-0.5 text-xs font-medium ${styles[status]}`}
+      className={`inline-flex items-center gap-1 rounded-full py-0.5 pr-2 pl-1.5 text-xs font-medium whitespace-nowrap ${v.className}`}
     >
-      {status === "READY" && reviewed ? "Reviewed" : labels[status]}
+      <Icon className={`h-3.5 w-3.5 ${v.spin ? "animate-spin" : ""}`} aria-hidden />
+      {v.label}
     </span>
   );
 }

@@ -2,13 +2,23 @@
 
 Upload invoices and receipts; Claude reads them and turns them into structured expense data you can review, correct, chart and export.
 
+![Overview](docs/screenshots/overview.png)
+
+<p>
+  <img src="docs/screenshots/overview-dark.png" width="72%" alt="Overview in dark mode" />
+  <img src="docs/screenshots/mobile.png" width="24%" alt="Overview on a phone" />
+</p>
+
 ## Features
 
 - **Accounts**: email and password sign-up with Better Auth. Sessions are stored in Postgres, and every query, action and file download is scoped to the signed-in user. Another user's document returns a 404.
 - **AI extraction**: PDFs and photos (JPEG, PNG, WebP) go to Claude with a Zod schema as a structured output. It returns the vendor, document number, dates, currency, subtotal, tax, total, category, line items and warnings about anything unreadable or inconsistent.
 - **Background processing**: uploads return straight away, extraction runs after the response (`after()`), and the UI polls until it finishes.
 - **Human in the loop**: every extracted field can be corrected next to the original document, and corrected documents are marked *Reviewed*.
-- **Dashboard**: spend per currency (currencies are never added together), by category and by month.
+- **Overview**: this month's spend against last month, a six-month chart with hover and keyboard tooltips (plus a table for screen readers), a category breakdown, and a "needs attention" queue. Currencies are never added together.
+- **Review workflow**: documents move from *To review* to *Reviewed*. Line items are checked against the subtotal, extraction warnings are flagged, and deletes ask for confirmation.
+- **Search and filters**: search across vendor, number and category, and filter by status. The list switches to a stacked layout on phones.
+- **Design**: light and dark themes, chart colours checked for contrast and colour-blind safety, skeleton loading states, visible focus, and reduced-motion support.
 - **CSV export**: neutralises spreadsheet formula injection.
 - **Object storage**: files go to Cloudflare R2, or any S3-compatible store, under keys that contain no user input. The bucket stays private: downloads go through an ownership check and are served with `nosniff` and a sandboxing CSP.
 
@@ -37,6 +47,12 @@ npm run dev
 ```
 
 Open http://localhost:3000, create an account and upload a receipt.
+
+To explore with realistic data, without an API key:
+
+```bash
+npm run seed:demo             # demo@ledgerlens.app / demo-password
+```
 
 ```bash
 npm test                      # unit tests

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { summarize, toCsv, type ReportDocument } from "./reports";
+import { lastMonths, percentChange, summarize, toCsv, type ReportDocument } from "./reports";
 
 function doc(overrides: Partial<ReportDocument>): ReportDocument {
   return {
@@ -62,5 +62,33 @@ describe("toCsv", () => {
   it("neutralises spreadsheet formulas", () => {
     const csv = toCsv([doc({ vendorName: "=HYPERLINK(\"x\")" })]);
     expect(csv).toContain(`"'=HYPERLINK(""x"")"`);
+  });
+});
+
+describe("lastMonths", () => {
+  it("fills empty months with zero and crosses the year boundary", () => {
+    const points = lastMonths(
+      [
+        { month: "2025-11", total: 50 },
+        { month: "2026-01", total: 120 },
+        { month: "2024-01", total: 999 },
+      ],
+      new Date("2026-02-15T12:00:00Z"),
+      4,
+    );
+    expect(points).toEqual([
+      { month: "2025-11", total: 50 },
+      { month: "2025-12", total: 0 },
+      { month: "2026-01", total: 120 },
+      { month: "2026-02", total: 0 },
+    ]);
+  });
+});
+
+describe("percentChange", () => {
+  it("rounds, signs, and refuses a zero baseline", () => {
+    expect(percentChange(150, 100)).toBe(50);
+    expect(percentChange(75, 100)).toBe(-25);
+    expect(percentChange(10, 0)).toBeNull();
   });
 });

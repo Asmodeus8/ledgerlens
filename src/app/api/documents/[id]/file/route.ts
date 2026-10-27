@@ -25,7 +25,12 @@ export async function GET(_req: Request, ctx: RouteContext<"/api/documents/[id]/
       "Cache-Control": "private, max-age=3600",
       // Uploads are untrusted: never let the browser sniff them into something executable.
       "X-Content-Type-Options": "nosniff",
-      "Content-Security-Policy": "default-src 'none'; img-src 'self'; style-src 'unsafe-inline'; sandbox",
+      // Chrome won't render a PDF inside a sandboxed document, so PDFs skip `sandbox`;
+      // with nosniff and a fixed content type they can't execute script anyway.
+      "Content-Security-Policy":
+        doc.mimeType === "application/pdf"
+          ? "default-src 'none'; img-src 'self'; style-src 'unsafe-inline'; object-src 'self'"
+          : "default-src 'none'; img-src 'self'; style-src 'unsafe-inline'; sandbox",
     },
   });
 }

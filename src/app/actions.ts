@@ -118,7 +118,17 @@ const CorrectionSchema = z.object({
   category: z.enum(CATEGORIES),
 });
 
-export type CorrectionState = { error?: string; saved?: boolean };
+const FIELD_ERRORS: Record<string, string> = {
+  currency: "Currency must be a 3-letter code, like NGN",
+  issueDate: "Invalid date",
+  dueDate: "Invalid date",
+  subtotal: "Subtotal must be a number",
+  tax: "Tax must be a number",
+  total: "Total must be a number",
+  category: "Pick a category",
+};
+
+export type CorrectionState = { error?: string; field?: string; savedAt?: number };
 
 export async function saveCorrections(
   id: string,
@@ -128,8 +138,8 @@ export async function saveCorrections(
   await requireOwnDocument(id);
   const parsed = CorrectionSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) {
-    const field = parsed.error.issues[0]?.path.join(".");
-    return { error: `Check the ${field || "form"} field.` };
+    const field = String(parsed.error.issues[0]?.path[0] ?? "");
+    return { error: FIELD_ERRORS[field] ?? "Check the highlighted field", field };
   }
   const v = parsed.data;
   await prisma.document.update({
@@ -143,5 +153,5 @@ export async function saveCorrections(
     },
   });
   revalidatePath("/", "layout");
-  return { saved: true };
+  return { savedAt: Date.now() };
 }
