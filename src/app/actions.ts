@@ -2,12 +2,13 @@
 
 import { after } from "next/server";
 import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { z } from "zod/v4";
 import { prisma } from "@/lib/db";
 import { parseIsoDate, processDocument } from "@/lib/documents";
 import { CATEGORIES } from "@/lib/categories";
 import { isSupportedMimeType } from "@/lib/extraction";
+import { requireUser } from "@/lib/session";
 
 const MAX_FILES = 5;
 const MAX_FILE_BYTES = 10 * 1024 * 1024;
@@ -18,6 +19,7 @@ export async function uploadDocuments(
   _prev: UploadState,
   formData: FormData,
 ): Promise<UploadState> {
+  const user = await requireUser();
   const files = formData
     .getAll("files")
     .filter((f): f is File => f instanceof File && f.size > 0);
@@ -37,6 +39,7 @@ export async function uploadDocuments(
   for (const file of files) {
     const doc = await prisma.document.create({
       data: {
+        userId: user.id,
         fileName: file.name,
         mimeType: file.type,
         fileSize: file.size,
@@ -54,7 +57,19 @@ export async function uploadDocuments(
   redirect(ids.length === 1 ? `/documents/${ids[0]}` : "/documents");
 }
 
+/** 404s unless the signed-in user owns the document, so ids can't be probed. */
+async function requireOwnDocument(id: string) {
+  const user = await requireUser();
+  const doc = await prisma.document.findFirst({
+    where: { id, userId: user.id },
+    select: { id: true },
+  });
+  if (!doc) notFound();
+  return doc;
+}
+
 export async function retryDocument(id: string) {
+  await requireOwnDocument(id);
   await prisma.document.update({
     where: { id },
     data: { status: "PROCESSING", error: null },
@@ -64,6 +79,7 @@ export async function retryDocument(id: string) {
 }
 
 export async function deleteDocument(id: string) {
+  await requireOwnDocument(id);
   await prisma.document.delete({ where: { id } });
   revalidatePath("/", "layout");
   redirect("/documents");
@@ -96,6 +112,7 @@ export async function saveCorrections(
   _prev: CorrectionState,
   formData: FormData,
 ): Promise<CorrectionState> {
+  await requireOwnDocument(id);
   const parsed = CorrectionSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) {
     const field = parsed.error.issues[0]?.path.join(".");

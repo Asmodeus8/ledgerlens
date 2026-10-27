@@ -1,6 +1,6 @@
 import "server-only";
-import { connection } from "next/server";
 import { prisma } from "@/lib/db";
+import { requireUser } from "@/lib/session";
 import {
   extractDocument,
   ExtractionError,
@@ -28,26 +28,27 @@ const listSelect = {
 } satisfies Prisma.DocumentSelect;
 
 export async function listDocuments() {
-  await connection();
+  const user = await requireUser();
   return prisma.document.findMany({
+    where: { userId: user.id },
     select: listSelect,
     orderBy: { createdAt: "desc" },
   });
 }
 
 export async function getDocument(id: string) {
-  await connection();
-  return prisma.document.findUnique({
-    where: { id },
+  const user = await requireUser();
+  return prisma.document.findFirst({
+    where: { id, userId: user.id },
     omit: { fileData: true },
     include: { lineItems: { orderBy: { position: "asc" } } },
   });
 }
 
 export async function getReportDocuments(): Promise<ReportDocument[]> {
-  await connection();
+  const user = await requireUser();
   const docs = await prisma.document.findMany({
-    where: { status: "READY" },
+    where: { userId: user.id, status: "READY" },
     select: {
       id: true,
       fileName: true,
@@ -70,7 +71,10 @@ export async function getReportDocuments(): Promise<ReportDocument[]> {
   }));
 }
 
-/** Runs extraction for a stored document and records the result or the failure. */
+/**
+ * Runs extraction for a stored document and records the result or the failure.
+ * Runs in the background with no request, so callers must check ownership first.
+ */
 export async function processDocument(id: string) {
   const doc = await prisma.document.findUnique({
     where: { id },

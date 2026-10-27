@@ -1,9 +1,13 @@
 import { prisma } from "@/lib/db";
+import { getSession } from "@/lib/session";
 
 export async function GET(_req: Request, ctx: RouteContext<"/api/documents/[id]/file">) {
+  const session = await getSession();
+  if (!session) return new Response("Unauthorized", { status: 401 });
+
   const { id } = await ctx.params;
-  const doc = await prisma.document.findUnique({
-    where: { id },
+  const doc = await prisma.document.findFirst({
+    where: { id, userId: session.user.id },
     select: { fileData: true, mimeType: true, fileName: true },
   });
   if (!doc) return new Response("Not found", { status: 404 });
