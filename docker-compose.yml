@@ -10,5 +10,20 @@ services:
     volumes:
       - pgdata:/var/lib/postgresql/data
 
+  # S3-compatible stand-in for Cloudflare R2 in local dev.
+  storage:
+    image: adobe/s3mock:latest
+    # The named volume is created root-owned; the image runs as uid 1000 by default.
+    user: root
+    environment:
+      COM_ADOBE_TESTING_S3MOCK_STORE_INITIAL_BUCKETS: ledgerlens
+      COM_ADOBE_TESTING_S3MOCK_STORE_RETAIN_FILES_ON_EXIT: "true"
+      COM_ADOBE_TESTING_S3MOCK_STORE_ROOT: /data
+    ports:
+      - "9090:9090"
+    volumes:
+      - s3data:/data
+
 volumes:
   pgdata:
+  s3data:

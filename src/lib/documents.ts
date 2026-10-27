@@ -7,6 +7,7 @@ import {
   isSupportedMimeType,
   type Extraction,
 } from "@/lib/extraction";
+import { getObject } from "@/lib/storage";
 import type { ReportDocument } from "@/lib/reports";
 import type { Prisma } from "@/generated/prisma/client";
 
@@ -40,7 +41,6 @@ export async function getDocument(id: string) {
   const user = await requireUser();
   return prisma.document.findFirst({
     where: { id, userId: user.id },
-    omit: { fileData: true },
     include: { lineItems: { orderBy: { position: "asc" } } },
   });
 }
@@ -78,7 +78,7 @@ export async function getReportDocuments(): Promise<ReportDocument[]> {
 export async function processDocument(id: string) {
   const doc = await prisma.document.findUnique({
     where: { id },
-    select: { fileData: true, mimeType: true },
+    select: { storageKey: true, mimeType: true },
   });
   if (!doc) return;
 
@@ -86,7 +86,9 @@ export async function processDocument(id: string) {
     if (!isSupportedMimeType(doc.mimeType)) {
       throw new ExtractionError(`Unsupported file type: ${doc.mimeType}`);
     }
-    const extraction = await extractDocument(Buffer.from(doc.fileData), doc.mimeType);
+    const data = await getObject(doc.storageKey);
+    if (!data) throw new ExtractionError("The uploaded file is missing from storage.");
+    const extraction = await extractDocument(Buffer.from(data), doc.mimeType);
     await saveExtraction(id, extraction);
   } catch (err) {
     console.error(`Extraction failed for document ${id}`, err);

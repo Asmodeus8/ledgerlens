@@ -20,7 +20,8 @@ model Document {
   fileName  String
   mimeType  String
   fileSize  Int
-  fileData  Bytes
+  // Object key in S3/R2; the file itself lives in object storage.
+  storageKey String        @unique
   status    DocumentStatus @default(PROCESSING)
   error     String?
   createdAt DateTime       @default(now())

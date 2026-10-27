@@ -9,6 +9,7 @@ import { parseIsoDate, processDocument } from "@/lib/documents";
 import { CATEGORIES } from "@/lib/categories";
 import { isSupportedMimeType } from "@/lib/extraction";
 import { requireUser } from "@/lib/session";
+import { deleteObject, newObjectKey, putObject } from "@/lib/storage";
 
 const MAX_FILES = 5;
 const MAX_FILE_BYTES = 10 * 1024 * 1024;
@@ -37,17 +38,25 @@ export async function uploadDocuments(
 
   const ids: string[] = [];
   for (const file of files) {
-    const doc = await prisma.document.create({
-      data: {
-        userId: user.id,
-        fileName: file.name,
-        mimeType: file.type,
-        fileSize: file.size,
-        fileData: new Uint8Array(await file.arrayBuffer()),
-      },
-      select: { id: true },
-    });
-    ids.push(doc.id);
+    const storageKey = newObjectKey(user.id);
+    await putObject(storageKey, new Uint8Array(await file.arrayBuffer()), file.type);
+    try {
+      const doc = await prisma.document.create({
+        data: {
+          userId: user.id,
+          fileName: file.name,
+          mimeType: file.type,
+          fileSize: file.size,
+          storageKey,
+        },
+        select: { id: true },
+      });
+      ids.push(doc.id);
+    } catch (err) {
+      // Don't leave an orphaned object behind if the row couldn't be written.
+      await deleteObject(storageKey).catch(() => {});
+      throw err;
+    }
   }
 
   // Extraction takes several seconds per file; respond first and let the list poll.
@@ -62,7 +71,7 @@ async function requireOwnDocument(id: string) {
   const user = await requireUser();
   const doc = await prisma.document.findFirst({
     where: { id, userId: user.id },
-    select: { id: true },
+    select: { id: true, storageKey: true },
   });
   if (!doc) notFound();
   return doc;
@@ -79,8 +88,12 @@ export async function retryDocument(id: string) {
 }
 
 export async function deleteDocument(id: string) {
-  await requireOwnDocument(id);
+  const doc = await requireOwnDocument(id);
   await prisma.document.delete({ where: { id } });
+  // Row first: a leftover object is harmless, a row pointing at nothing is not.
+  await deleteObject(doc.storageKey).catch((err) =>
+    console.error(`Failed to delete object ${doc.storageKey}`, err),
+  );
   revalidatePath("/", "layout");
   redirect("/documents");
 }
