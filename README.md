@@ -20,7 +20,7 @@ Upload invoices and receipts; Claude reads them and turns them into structured e
 - **Search and filters**: search across vendor, number and category, and filter by status. The list switches to a stacked layout on phones.
 - **Design**: light and dark themes, chart colours checked for contrast and colour-blind safety, skeleton loading states, visible focus, and reduced-motion support.
 - **CSV export**: neutralises spreadsheet formula injection.
-- **Object storage**: files go to Cloudflare R2, or any S3-compatible store, under keys that contain no user input. The bucket stays private: downloads go through an ownership check and are served with `nosniff` and a sandboxing CSP.
+- **Object storage**: the browser uploads straight to Cloudflare R2 (or any S3-compatible store) through short-lived signed URLs, so files never pass through the app or its request-size limits. The server then checks what actually landed before recording it. Keys contain no user input. The bucket stays private: downloads go through an ownership check and are served with `nosniff` and a sandboxing CSP.
 
 ## Stack
 
@@ -78,7 +78,7 @@ src/
   lib/
     auth.ts                   Better Auth config
     session.ts                getSession / requireUser
-    storage.ts                S3/R2 put, get, delete
+    storage.ts                S3/R2 signed uploads, head, get, delete
     extraction.ts             Claude call and extraction schema
     documents.ts              queries and the extraction pipeline
     reports.ts                totals and CSV (pure, unit tested)
@@ -97,4 +97,17 @@ S3_BUCKET="<bucket>"
 S3_ACCESS_KEY_ID="<token access key id>"
 S3_SECRET_ACCESS_KEY="<token secret>"
 S3_FORCE_PATH_STYLE="false"
+```
+
+Browsers upload directly to the bucket, so add a CORS policy in the bucket's settings:
+
+```json
+[
+  {
+    "AllowedOrigins": ["https://your-app.vercel.app"],
+    "AllowedMethods": ["PUT"],
+    "AllowedHeaders": ["content-type"],
+    "MaxAgeSeconds": 3600
+  }
+]
 ```

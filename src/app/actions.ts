@@ -9,61 +9,93 @@ import { parseIsoDate, processDocument } from "@/lib/documents";
 import { CATEGORIES } from "@/lib/categories";
 import { isSupportedMimeType } from "@/lib/extraction";
 import { requireUser } from "@/lib/session";
-import { deleteObject, newObjectKey, putObject } from "@/lib/storage";
+import { deleteObject, headObject, newObjectKey, presignUpload } from "@/lib/storage";
 
 const MAX_FILES = 5;
 const MAX_FILE_BYTES = 10 * 1024 * 1024;
 
-export type UploadState = { error?: string };
+const FileMeta = z.object({
+  name: z.string().trim().min(1).max(255),
+  type: z.string(),
+  size: z.number().int().positive(),
+});
 
-export async function uploadDocuments(
-  _prev: UploadState,
-  formData: FormData,
-): Promise<UploadState> {
+export type PreparedUpload = { key: string; url: string };
+
+/**
+ * Step one of an upload: validate what the browser says it will send and hand
+ * back signed URLs. The files go straight to storage, so they never hit the
+ * platform's request-size limit.
+ */
+export async function prepareUploads(
+  files: z.input<typeof FileMeta>[],
+): Promise<{ error: string } | { uploads: PreparedUpload[] }> {
   const user = await requireUser();
-  const files = formData
-    .getAll("files")
-    .filter((f): f is File => f instanceof File && f.size > 0);
+  const parsed = z.array(FileMeta).min(1).max(MAX_FILES).safeParse(files);
+  if (!parsed.success) return { error: `Choose between 1 and ${MAX_FILES} files.` };
 
-  if (files.length === 0) return { error: "Choose at least one file." };
-  if (files.length > MAX_FILES) return { error: `Upload at most ${MAX_FILES} files at a time.` };
-  for (const file of files) {
+  for (const file of parsed.data) {
     if (!isSupportedMimeType(file.type)) {
       return { error: `${file.name}: only PDF, JPEG, PNG, WebP and GIF are supported.` };
     }
-    if (file.size > MAX_FILE_BYTES) {
-      return { error: `${file.name} is larger than 10MB.` };
-    }
+    if (file.size > MAX_FILE_BYTES) return { error: `${file.name} is larger than 10MB.` };
   }
 
+  const uploads = await Promise.all(
+    parsed.data.map(async (file) => {
+      const key = newObjectKey(user.id);
+      return { key, url: await presignUpload(key, file.type) };
+    }),
+  );
+  return { uploads };
+}
+
+const CompletedUpload = z.object({ key: z.string(), name: FileMeta.shape.name });
+
+/**
+ * Step two: record the uploads. Checks what actually landed in storage rather
+ * than trusting the browser, since the signed URL doesn't limit size.
+ */
+export async function completeUploads(
+  items: z.input<typeof CompletedUpload>[],
+): Promise<{ error: string }> {
+  const user = await requireUser();
+  const parsed = z.array(CompletedUpload).min(1).max(MAX_FILES).safeParse(items);
+  if (!parsed.success) return { error: "Something went wrong. Try again." };
+
+  const ownPrefix = `users/${user.id}/`;
   const ids: string[] = [];
-  for (const file of files) {
-    const storageKey = newObjectKey(user.id);
-    await putObject(storageKey, new Uint8Array(await file.arrayBuffer()), file.type);
-    try {
-      const doc = await prisma.document.create({
-        data: {
-          userId: user.id,
-          fileName: file.name,
-          mimeType: file.type,
-          fileSize: file.size,
-          storageKey,
-        },
-        select: { id: true },
-      });
-      ids.push(doc.id);
-    } catch (err) {
-      // Don't leave an orphaned object behind if the row couldn't be written.
-      await deleteObject(storageKey).catch(() => {});
-      throw err;
+  for (const item of parsed.data) {
+    if (!item.key.startsWith(ownPrefix)) return { error: "Something went wrong. Try again." };
+
+    const stored = await headObject(item.key);
+    if (!stored) return { error: `${item.name} didn't finish uploading. Try again.` };
+    if (!isSupportedMimeType(stored.contentType) || stored.size > MAX_FILE_BYTES) {
+      await deleteObject(item.key).catch(() => {});
+      return { error: `${item.name} isn't a supported file under 10MB.` };
     }
+
+    const doc = await prisma.document.upsert({
+      // Idempotent, so a double submit doesn't create a second row for the same object.
+      where: { storageKey: item.key },
+      update: {},
+      create: {
+        userId: user.id,
+        fileName: item.name,
+        mimeType: stored.contentType,
+        fileSize: stored.size,
+        storageKey: item.key,
+      },
+      select: { id: true, status: true },
+    });
+    if (doc.status === "PROCESSING") ids.push(doc.id);
   }
 
   // Extraction takes several seconds per file; respond first and let the list poll.
   after(() => Promise.all(ids.map(processDocument)));
 
   revalidatePath("/", "layout");
-  redirect(ids.length === 1 ? `/documents/${ids[0]}` : "/documents");
+  redirect(parsed.data.length === 1 && ids.length === 1 ? `/documents/${ids[0]}` : "/documents");
 }
 
 /** 404s unless the signed-in user owns the document, so ids can't be probed. */
