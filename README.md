@@ -2,6 +2,8 @@
 
 Upload invoices and receipts; Claude reads them and turns them into structured expense data you can review, correct, chart and export.
 
+**Live demo: [ledgerlens-rouge.vercel.app](https://ledgerlens-rouge.vercel.app)** · sign in with `demo@ledgerlens.app` / `demo-password`. The demo runs in demo mode, so uploads get labelled sample data rather than a real extraction, and the demo account resets on every deploy.
+
 ![Overview](docs/screenshots/overview.png)
 
 <p>
@@ -85,6 +87,14 @@ src/
 prisma/schema.prisma
 src/proxy.ts                  redirects signed-out visitors (optimistic, cookie-only)
 ```
+
+## Deploying to Vercel
+
+The live demo runs on Vercel with Prisma Postgres and the AWS S3 integration, both added from the Vercel Marketplace:
+
+- **Storage** needs no keys. When `AWS_ROLE_ARN` is set, the app assumes the integration's IAM role through Vercel OIDC and reads its `S3_BUCKET_NAME` and `AWS_REGION`.
+- **Builds** run `vercel-build`: it sets the bucket's CORS policy for the app's own origins (`scripts/configure-bucket-cors.ts`), reseeds the demo account on production deploys, then runs `next build`. The role credentials only exist on Vercel, so these steps can't run locally.
+- **Environment**: set `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL` (the production URL) and optionally `ANTHROPIC_API_KEY`. Apply migrations with `prisma migrate deploy` against the production `DATABASE_URL`.
 
 ## Using Cloudflare R2
 
