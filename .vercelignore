@@ -1,0 +1,3 @@
+# Never upload local env files; Vercel injects its own environment.
+.env*
+!.env.example
