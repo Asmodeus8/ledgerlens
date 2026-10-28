@@ -5,7 +5,8 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "vercel-build": "tsx scripts/configure-bucket-cors.ts && next build",
+    "vercel-build": "tsx scripts/configure-bucket-cors.ts && npm run seed:production && next build",
+    "seed:production": "[ \"$VERCEL_ENV\" != production ] || tsx scripts/seed-demo.ts || echo \"[seed] Demo seed failed; deploying anyway.\"",
     "start": "next start",
     "lint": "eslint",
     "test": "vitest run",
