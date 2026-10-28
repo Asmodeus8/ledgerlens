@@ -22,7 +22,7 @@ Upload invoices and receipts; Claude reads them and turns them into structured e
 - **Search and filters**: search across vendor, number and category, and filter by status. The list switches to a stacked layout on phones.
 - **Design**: light and dark themes, chart colours checked for contrast and colour-blind safety, skeleton loading states, visible focus, and reduced-motion support.
 - **CSV export**: neutralises spreadsheet formula injection.
-- **Object storage**: the browser uploads straight to Cloudflare R2 (or any S3-compatible store) through short-lived signed URLs, so files never pass through the app or its request-size limits. The server then checks what actually landed before recording it. Keys contain no user input. The bucket stays private: downloads go through an ownership check and are served with `nosniff` and a sandboxing CSP.
+- **Object storage**: the browser uploads straight to the bucket (AWS S3 on the live demo, Cloudflare R2 or any S3-compatible store) through short-lived signed URLs, so files never pass through the app or its request-size limits. The server then checks what actually landed before recording it. Keys contain no user input. The bucket stays private: downloads go through an ownership check and are served with `nosniff` and a sandboxing CSP.
 
 ## Stack
 
@@ -31,7 +31,7 @@ Upload invoices and receipts; Claude reads them and turns them into structured e
 | Framework | Next.js 16 (App Router, Server Actions, Cache Components), React 19, TypeScript |
 | Data | PostgreSQL 17, Prisma 7 (driver adapter `@prisma/adapter-pg`) |
 | Auth | Better Auth (email and password, Prisma adapter), Next.js Proxy for redirects |
-| Storage | Cloudflare R2 via `@aws-sdk/client-s3`; S3Mock in Docker for local dev |
+| Storage | AWS S3 via the Vercel integration (OIDC role) or Cloudflare R2, through `@aws-sdk/client-s3`; S3Mock in Docker for local dev |
 | AI | Claude via `@anthropic-ai/sdk`, structured outputs with Zod |
 | UI | Tailwind CSS 4, light and dark themes |
 | Tests | Vitest |
