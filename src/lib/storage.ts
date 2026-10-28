@@ -9,26 +9,33 @@ import {
   S3Client,
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
+import { awsCredentialsProvider } from "@vercel/oidc-aws-credentials-provider";
 
 /**
- * Object storage for uploaded documents. Cloudflare R2 in production; any
- * S3-compatible store works (docker-compose runs S3Mock for local dev).
+ * Object storage for uploaded documents. On Vercel with the AWS S3
+ * integration, credentials come from the integration's IAM role via OIDC;
+ * otherwise from static keys, so Cloudflare R2 or any S3-compatible store
+ * works too (docker-compose runs S3Mock for local dev).
  */
+const roleArn = process.env.AWS_ROLE_ARN;
+
 const client = new S3Client({
-  region: process.env.S3_REGION ?? "auto",
+  region: process.env.S3_REGION ?? process.env.AWS_REGION ?? "auto",
   endpoint: process.env.S3_ENDPOINT,
   forcePathStyle: process.env.S3_FORCE_PATH_STYLE === "true",
-  credentials: {
-    accessKeyId: process.env.S3_ACCESS_KEY_ID ?? "",
-    secretAccessKey: process.env.S3_SECRET_ACCESS_KEY ?? "",
-  },
+  credentials: roleArn
+    ? awsCredentialsProvider({ roleArn })
+    : {
+        accessKeyId: process.env.S3_ACCESS_KEY_ID ?? "",
+        secretAccessKey: process.env.S3_SECRET_ACCESS_KEY ?? "",
+      },
   // Only send checksums S3 itself requires; not every S3-compatible store accepts the newer defaults.
   requestChecksumCalculation: "WHEN_REQUIRED",
   responseChecksumValidation: "WHEN_REQUIRED",
 });
 
 const bucket = () => {
-  const name = process.env.S3_BUCKET;
+  const name = process.env.S3_BUCKET ?? process.env.S3_BUCKET_NAME;
   if (!name) throw new Error("S3_BUCKET is not set");
   return name;
 };

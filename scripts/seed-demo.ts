@@ -10,6 +10,7 @@ import "dotenv/config";
 import { randomUUID } from "node:crypto";
 import { DeleteObjectCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { PrismaPg } from "@prisma/adapter-pg";
+import { awsCredentialsProvider } from "@vercel/oidc-aws-credentials-provider";
 import { hashPassword } from "better-auth/crypto";
 import { PrismaClient } from "../src/generated/prisma/client";
 
@@ -17,18 +18,21 @@ const DEMO_EMAIL = process.env.DEMO_EMAIL ?? "demo@ledgerlens.app";
 const DEMO_PASSWORD = process.env.DEMO_PASSWORD ?? "demo-password";
 
 const prisma = new PrismaClient({ adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL }) });
+const roleArn = process.env.AWS_ROLE_ARN;
 const s3 = new S3Client({
-  region: process.env.S3_REGION ?? "auto",
+  region: process.env.S3_REGION ?? process.env.AWS_REGION ?? "auto",
   endpoint: process.env.S3_ENDPOINT,
   forcePathStyle: process.env.S3_FORCE_PATH_STYLE === "true",
-  credentials: {
-    accessKeyId: process.env.S3_ACCESS_KEY_ID ?? "",
-    secretAccessKey: process.env.S3_SECRET_ACCESS_KEY ?? "",
-  },
+  credentials: roleArn
+    ? awsCredentialsProvider({ roleArn })
+    : {
+        accessKeyId: process.env.S3_ACCESS_KEY_ID ?? "",
+        secretAccessKey: process.env.S3_SECRET_ACCESS_KEY ?? "",
+      },
   requestChecksumCalculation: "WHEN_REQUIRED",
   responseChecksumValidation: "WHEN_REQUIRED",
 });
-const bucket = process.env.S3_BUCKET!;
+const bucket = (process.env.S3_BUCKET ?? process.env.S3_BUCKET_NAME)!;
 
 type Item = [description: string, quantity: number, unitPrice: number];
 type Seed = {
